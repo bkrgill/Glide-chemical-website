@@ -281,22 +281,169 @@ const Products = () => {
   const isGlobalSearch = searchQuery.length > 0;
   const displayProducts = isGlobalSearch ? globalSearch : filteredProducts;
 
-  const downloadCatalog = () => {
-    let csv = 'Line Card,Category,Product Name\n';
-    productCategories.forEach(cat => {
-      cat.products.forEach(p => {
-        csv += `"${cat.parentCategory}","${cat.name}","${p.name}"\n`;
+  const downloadCatalog = async () => {
+    try {
+      const jsPDFModule = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+
+      const jsPDF = jsPDFModule.default;
+      if (autoTableModule.applyPlugin) {
+        autoTableModule.applyPlugin(jsPDF);
+      }
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+
+      // Colors
+      const teal = [13, 148, 136];
+      const cyan = [6, 182, 212];
+      const amber = [245, 158, 11];
+      const darkGray = [31, 41, 55];
+      const lightTeal = [240, 253, 250];
+      const lightAmber = [255, 251, 235];
+      const white = [255, 255, 255];
+
+      // ── Header ──
+      doc.setFillColor(...teal);
+      doc.rect(0, 0, pageWidth, 48, 'F');
+      doc.setFillColor(...cyan);
+      doc.rect(0, 48, pageWidth, 3, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(26);
+      doc.setTextColor(...white);
+      doc.text('GLIDE CHEMICALS INC.', margin, 22);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(204, 251, 241);
+      doc.text('Wholesale Chemical Distributor \u2014 Full Product Catalog', margin, 31);
+
+      doc.setFontSize(9);
+      doc.setTextColor(...white);
+      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.text('Generated: ' + date, pageWidth - margin, 43, { align: 'right' });
+
+      // ── Summary box ──
+      let yPos = 60;
+      doc.setFillColor(...lightTeal);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 22, 3, 3, 'F');
+      doc.setDrawColor(204, 251, 241);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 22, 3, 3, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...teal);
+      const surfCount = surfactantCategories.reduce((s, c) => s + c.products.length, 0);
+      const hiiCount = hiiCategories.reduce((s, c) => s + c.products.length, 0);
+      doc.text('Total Products: ' + totalProducts, margin + 6, yPos + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128);
+      doc.text('Surfactants: ' + surfCount + ' products  |  HI&I Line Card: ' + hiiCount + ' products', margin + 6, yPos + 17);
+
+      yPos += 30;
+
+      // ── Surfactants section title ──
+      doc.setFillColor(...teal);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 10, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...white);
+      doc.text('SURFACTANTS', margin + 5, yPos + 7);
+      yPos += 14;
+
+      // ── Surfactants table ──
+      const surfTableBody = [];
+      surfactantCategories.forEach(cat => {
+        cat.products.forEach((p, i) => {
+          surfTableBody.push([i === 0 ? cat.name : '', p.name]);
+        });
       });
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'Glide_Chemicals_Full_Catalog.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Category', 'Product Name']],
+        body: surfTableBody,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        headStyles: { fillColor: teal, textColor: white, fontStyle: 'bold', fontSize: 9, cellPadding: 4 },
+        bodyStyles: { fontSize: 8.5, textColor: darkGray, cellPadding: 3 },
+        alternateRowStyles: { fillColor: lightTeal },
+        columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold', textColor: teal } }
+      });
+
+      yPos = doc.lastAutoTable.finalY + 10;
+
+      // ── Check page break ──
+      if (yPos + 30 > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      // ── HI&I section title ──
+      doc.setFillColor(...amber);
+      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 10, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...white);
+      doc.text('HI&I LINE CARD', margin + 5, yPos + 7);
+      yPos += 14;
+
+      // ── HI&I table ──
+      const hiiTableBody = [];
+      hiiCategories.forEach(cat => {
+        cat.products.forEach((p, i) => {
+          hiiTableBody.push([i === 0 ? cat.name : '', p.name]);
+        });
+      });
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Category', 'Product Name']],
+        body: hiiTableBody,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        headStyles: { fillColor: amber, textColor: white, fontStyle: 'bold', fontSize: 9, cellPadding: 4 },
+        bodyStyles: { fontSize: 8.5, textColor: darkGray, cellPadding: 3 },
+        alternateRowStyles: { fillColor: lightAmber },
+        columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold', textColor: [180, 83, 9] } }
+      });
+
+      // ── Add footers to all pages ──
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        // Footer band
+        doc.setFillColor(249, 250, 251);
+        doc.rect(0, pageHeight - 16, pageWidth, 16, 'F');
+        doc.setDrawColor(229, 231, 235);
+        doc.line(0, pageHeight - 16, pageWidth, pageHeight - 16);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(156, 163, 175);
+        doc.text('\u00a9 ' + new Date().getFullYear() + ' Glide Chemicals Inc. | www.glidechemicals.com | +1 438-921-3346 | sales@glidechemicals.com', margin, pageHeight - 7);
+        doc.text('Page ' + i + ' of ' + totalPages, pageWidth - margin, pageHeight - 7, { align: 'right' });
+
+        // Mini header on continuation pages
+        if (i > 1) {
+          doc.setFillColor(...teal);
+          doc.rect(0, 0, pageWidth, 12, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(...white);
+          doc.text('GLIDE CHEMICALS INC. \u2014 Product Catalog', margin, 8);
+        }
+      }
+
+      doc.save('Glide_Chemicals_Full_Catalog.pdf');
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Error generating PDF: ' + err.message);
+    }
   };
 
   return (

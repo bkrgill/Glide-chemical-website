@@ -42,7 +42,19 @@ const Contact = () => {
   const dropZoneRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [systemEmail, setSystemEmail] = useState("sales@glidechemicals.com");
+
   useEffect(() => {
+    // Fetch contact email securely from backend
+    fetch(`${BACKEND_URL}/api/health`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.contactEmail) {
+          setSystemEmail(data.contactEmail);
+        }
+      })
+      .catch(err => console.error('Could not fetch config:', err));
+
     const subject = searchParams.get('subject');
     if (subject) {
       setFormData(prev => ({ ...prev, subject }));
@@ -200,7 +212,7 @@ const Contact = () => {
     } catch (error) {
       console.error('Contact form error:', error);
       setSubmitStatus('error');
-      setSubmitMessage('Could not connect to the server. Please try again later or contact us directly at sales@glidechemicals.com');
+      setSubmitMessage(`Could not connect to the server. Please try again later or contact us directly at ${systemEmail}`);
     } finally {
       setIsSubmitting(false);
       // Clear status after 8 seconds
@@ -219,7 +231,7 @@ const Contact = () => {
     {
       icon: <Mail className="w-5 h-5" />,
       title: "Email",
-      details: ["sales@glidechemicals.com"],
+      details: [systemEmail],
       color: "from-teal-500 to-cyan-500"
     },
     {
@@ -297,7 +309,7 @@ const Contact = () => {
               className="flex flex-wrap justify-center gap-3 sm:gap-4"
             >
               {[
-                { icon: <Mail className="w-4 h-4" />, text: "sales@glidechemicals.com" },
+                { icon: <Mail className="w-4 h-4" />, text: systemEmail },
                 { icon: <Phone className="w-4 h-4" />, text: "+1 438-921-3346" },
                 { icon: <Zap className="w-4 h-4" />, text: "24hr Response" },
               ].map((item, i) => (

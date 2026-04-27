@@ -177,7 +177,11 @@ const buildEmailHTML = (data) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Glide Chemicals API is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Glide Chemicals API is running',
+    contactEmail: process.env.CONTACT_EMAIL || 'sales@glidechemicals.com'
+  });
 });
 
 // Contact form submission
@@ -256,7 +260,7 @@ app.post('/api/contact', upload.array('attachments', 5), async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: 'Failed to send your message. Please try again later or contact us directly at sales@glidechemicals.com'
+      message: `Failed to send your message. Please try again later or contact us directly at ${process.env.CONTACT_EMAIL || 'sales@glidechemicals.com'}`
     });
   }
 });
